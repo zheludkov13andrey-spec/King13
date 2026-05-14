@@ -1,4 +1,4 @@
-name: KING13 APK Build
+name: KING13 APK Builder
 
 on:
   workflow_dispatch:
@@ -8,11 +8,120 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Скачать репозиторий
         uses: actions/checkout@v4
 
-      - name: Upload Project
+      - name: Установить Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Установить Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Установить Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Найти ZIP проекта
+        run: |
+          ZIP_FILE=$(find . -name "KING13_PROJECT.zip" | head -n 1)
+          echo "ZIP_FILE=$ZIP_FILE" >> $GITHUB_ENV
+
+      - name: Распаковать проект
+        run: |
+          mkdir extracted
+          unzip -q "$ZIP_FILE" -d extracted
+          PUBLIC_DIR=$(find extracted -type d -name public | head -n 1)
+          echo "PUBLIC_DIR=$PUBLIC_DIR" >> $GITHUB_ENV
+
+      - name: Создать Android проект
+        run: |
+          mkdir -p app/src/main/java/com/andreyking/king13
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/assets/public
+          cp -r "$PUBLIC_DIR"/* app/src/main/assets/public/
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories{ google(); mavenCentral() } }
+          rootProject.name="KING13"
+          include ":app"
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins { id "com.android.application" version "8.5.2" apply false }
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins { id "com.android.application" }
+
+          android {
+              namespace "com.andreyking.king13"
+              compileSdk 35
+              defaultConfig {
+                  applicationId "com.andreyking.king13"
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:windowBackground">#02040D</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <application android:label="KING13" android:theme="@style/AppTheme">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/andreyking/king13/MainActivity.java <<'EOF'
+          package com.andreyking.king13;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  WebView webView = new WebView(this);
+                  setContentView(webView);
+                  WebSettings settings = webView.getSettings();
+                  settings.setJavaScriptEnabled(true);
+                  settings.setDomStorageEnabled(true);
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.loadUrl("file:///android_asset/public/index.html");
+              }
+          }
+          EOF
+
+      - name: Собрать APK
+        run: gradle assembleDebug
+
+      - name: Загрузить APK
         uses: actions/upload-artifact@v4
         with:
-          name: KING13_PROJECT
-          path: KING13_PROJECT.zip
+          name: KING13-APK
+          path: app/build/outputs/apk/debug/*.apk
