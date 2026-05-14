@@ -8,22 +8,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Скачать проект
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Установить Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Create APK
-        run: |
-          mkdir apk
-          echo "KING13 APK BUILD" > apk/KING13.apk
+      - name: Собрать APK
+        run: ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Загрузить APK
         uses: actions/upload-artifact@v4
         with:
           name: KING13-APK
-          path: apk/KING13.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
