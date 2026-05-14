@@ -1,0 +1,18 @@
+name: KING13 APK Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload Project
+        uses: actions/upload-artifact@v4
+        with:
+          name: KING13_PROJECT
+          path: KING13_PROJECT.zip
